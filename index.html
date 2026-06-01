@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY KUNDENKARTE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'SF Pro Display', -apple-system, sans-serif; }
+
+        body {
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            background: #050505;
+            background-image: radial-gradient(circle at 15% 15%, rgba(255, 0, 0, 0.15) 0%, transparent 50%),
+                              radial-gradient(circle at 85% 85%, rgba(255, 0, 0, 0.15) 0%, transparent 50%);
+            overflow: hidden; padding: 20px;
+        }
+
+        .glass-box {
+            background: rgba(30, 0, 0, 0.35); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 49, 49, 0.35); border-radius: 28px;
+            padding: 30px 25px; width: 100%; max-width: 420px; text-align: center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 85vh; 
+            overflow-y: auto; 
+        }
+
+        .glass-box::-webkit-scrollbar { width: 4px; }
+        .glass-box::-webkit-scrollbar-track { background: transparent; }
+        .glass-box::-webkit-scrollbar-thumb { background: rgba(255, 49, 49, 0.4); border-radius: 10px; }
+
+        .fade-in { animation: fadeIn 0.8s forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .id-board {
+            width: 100%; padding: 15px; margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.6); border-radius: 12px;
+            border: 2px solid #333; transition: 0.5s;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .glow-red { border-color: #ff3131; box-shadow: 0 0 15px #ff3131; }
+        .glow-blue { border-color: #3186ff; box-shadow: 0 0 15px #3186ff; }
+        .glow-green { border-color: #00ff88; box-shadow: 0 0 15px #00ff88; }
+        .glow-gold { border-color: #ffcc00; box-shadow: 0 0 20px #ffcc00; }
+
+        .live-clock { color: rgba(255,255,255,0.4); font-size: 10px; font-family: monospace; margin-bottom: 15px; }
+        h2 { color: #fff; font-size: 30px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 0 10px rgba(255, 49, 49, 0.5); }
+        .mit-subtitle { color: rgba(255, 255, 255, 0.6); font-size: 10px; margin-bottom: 25px; letter-spacing: 1px; }
+
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { color: rgba(255,255,255,0.4); font-size: 9px; margin-left: 10px; text-transform: uppercase; }
+        
+        input {
+            width: 100%; padding: 15px; background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 49, 49, 0.2); border-radius: 12px;
+            color: #ff3131; font-size: 15px; outline: none; transition: 0.3s;
+        }
+
+        .login-btn {
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            background: #ff3131; color: #fff; font-size: 13px; font-weight: 800;
+            cursor: pointer; text-transform: uppercase; transition: 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .data-card {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px; border-radius: 15px; margin-bottom: 12px; text-align: left;
+        }
+
+        .expiry-warning {
+            background: rgba(255, 204, 0, 0.15); border: 1px solid #ffcc00;
+            color: #ffcc00; padding: 10px; border-radius: 10px; font-size: 10px;
+            margin-bottom: 15px; text-align: left; line-height: 1.4;
+        }
+
+        .status-badge {
+            display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: bold; margin-bottom: 5px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.97); z-index: 1000; justify-content: center; align-items: center; padding: 20px;
+        }
+        .popup { background: #080808; border: 1px solid #ff3131; padding: 25px; border-radius: 20px; width: 100%; max-width: 380px; text-align: center; }
+        
+        .hidden { display: none !important; }
+
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid rgba(255, 49, 49, 0.2);
+            border-top: 3px solid #ff3131; border-radius: 50%;
+            margin: 20px auto; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .receipt-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 11px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; }
+        .receipt-val { color: #fff; font-weight: bold; text-align: right; }
+        .receipt-lbl { color: rgba(255,255,255,0.5); text-transform: uppercase; }
+
+        .atm-btn {
+            background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 49, 49, 0.3);
+            width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 10px; cursor: pointer;
+            text-align: left; font-size: 12px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .atm-btn:hover { background: rgba(255, 49, 49, 0.1); }
+        
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="glass-box fade-in">
+        <div id="live-time" class="live-clock">SYSTEM TIME: --:--:-- --</div>
+
+        <div id="loading-ui" class="hidden">
+            <div class="spinner"></div>
+            <p id="loading-msg" style="color: #ff3131; font-size: 10px; letter-spacing: 2px;">AUTHENTICATING...</p>
+        </div>
+
+        <div id="intro-ui">
+            <h2>KUNDENKARTE</h2>
+            <p class="mit-subtitle">The National Digital Banking System of Aesthrella</p>
+            <div style="margin-top: 40px;">
+                <button class="login-btn" onclick="navWithLoading('login-ui')">PROCEED TO LOGIN</button>
+                <button class="login-btn" style="background: transparent; border: 1px solid rgba(255,255,255,0.3);" onclick="navWithLoading('rules-ui')">DEVELOPER NOTES</button>
+            </div>
+        </div>
+
+        <div id="rules-ui" class="hidden">
+            <h2 style="font-size: 22px;">NOTES FROM DEVELOPERS</h2>
+            <div style="text-align: left; color: #ccc; font-size: 11px; line-height: 1.8; margin: 20px 0;">
+                <b>KUNDENKARTE BANKING GUIDELINES</b><br>
+                <p><i>Currency Conversion</i><br>
+The banking system of Kundenkarte utilizes the Aesthrellan Taresh (AET) currency, establishing a standard conversion rate where 1 AET is equivalent to ₱0.25.<br><br>
+<i>Account Security</i><br>
+Card identification numbers are uniquely structured with distinct Prefix, PIN, and CRN segments, and these credentials must be kept strictly confidential to prevent unauthorized access.<br><br>
+<i>Expiration Policy</i><br>
+Expired cards are permanently purged from the database immediately upon system check, making it vital to initiate a renewal 5 to 10 days before your card expires to avoid service disruption.<br><br>
+<i>Transaction Requirements</i><br>
+Providing a screen capture of the interface is a mandatory security requirement for processing all withdrawal transactions.<br><br>
+<i>Responsible Usage</i><br>
+Users are strongly urged to manage their accounts responsibly and utilize the Kundenkarte platform wisely to maintain optimal financial security and system efficiency.<br><br>
+<i>Prohibited Activities</i><br>
+Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black Card for unauthorized gambling activities, illicit betting pools, fraudulent transactions, or any form of credential sharing, as any violation will trigger an immediate asset freeze and permanent termination of membership.</p>
+            </div>
+            <button class="login-btn" onclick="navWithLoading('intro-ui')">BACK</button>
+        </div>
+
+        <div id="login-ui" class="hidden">
+            <h2>LOGIN PORTAL</h2>
+            <p class="mit-subtitle">Please Log In to Continue</p>
+            <div class="input-group">
+                <label>Codal Pass</label>
+                <input type="text" id="codal" maxlength="5" placeholder="ABCDE">
+            </div>
+            <div class="input-group">
+                <label>8-Digit PIN</label>
+                <input type="password" id="pin" maxlength="8" placeholder="********">
+            </div>
+            <button class="login-btn" onclick="processAccess('login')">LOG IN</button>
+            <button class="login-btn" style="background: transparent; border: none; font-size: 10px; color: rgba(255,255,255,0.4);" onclick="navWithLoading('intro-ui')">RETURN TO MAIN</button>
+            <p id="error" style="color: #ff3131; font-size: 10px; margin-top: 15px; display: none;">ACCESS DENIED</p>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            <div id="expiry-banner" class="expiry-warning hidden">
+                <strong>⚠ EXPIRY WARNING:</strong> Account expires in <span id="days-left">--</span> days. Contact the Head of Kundenkarte for card renewal. Thank you!
+            </div>
+
+            <div id="status-area"></div>
+            
+            <div id="id-board" class="id-board">
+                <div id="card-id-display" style="font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; margin-bottom: 5px;">ID: ---</div>
+                <div id="dash-name" style="color: #fff; font-weight: bold; font-size: 18px;">---</div>
+            </div>
+
+            <div class="data-card">
+                <label>Current Card Balance</label>
+                <div id="balance-aet" style="font-size: 24px; color: #fff; font-weight: bold;">0.00 AET</div>
+                <div id="balance-php" style="font-size: 12px; color: rgba(255,255,255,0.5);">₱ 0.00</div>
+            </div>
+
+            <div class="data-card" style="border-color: rgba(255,255,255,0.05);">
+                <label>Card Expiry Date</label>
+                <div id="expiry-display" style="font-size: 14px; color: #fff; font-weight: 500; margin-top: 2px;">---</div>
+            </div>
+            
+            <button class="login-btn" style="background: #fff; color: #000; margin-bottom: 10px;" onclick="showAtmSelection()">WITHDRAW</button>
+            <button class="login-btn" style="background: transparent; border: 1px solid #ff3131; font-size: 11px;" onclick="triggerLogoutPrompt()">LOG OUT</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="notify-overlay">
+        <div class="popup">
+            <h4 id="notify-title" style="color: #fff; margin-bottom: 15px; font-size: 14px;">NOTIFICATION</h4>
+            
+            <div id="atm-selection" class="hidden">
+                <button class="atm-btn" onclick="selectAtm('Vaishya')"><span>VAISHYA ATM</span> <span style="font-size:8px; color:#ff3131;">INACTIVE</span></button>
+                <button class="atm-btn" onclick="selectAtm('Kuros')"><span>KUROS ATM</span> <span style="font-size:8px; color:#ff3131;">INACTIVE</span></button>
+                <button class="atm-btn" onclick="selectAtm('Conva')"><span>CONVA ATM</span> <span style="font-size:8px; color:#ff3131;">INACTIVE</span></button>
+            </div>
+
+            <div id="withdraw-input-ui" class="hidden">
+                <div class="input-group">
+                    <label>Amount (AET)</label>
+                    <input type="number" id="withdraw-amount" min="100" max="1000" placeholder="100 - 1000" oninput="updateLiveConversion()">
+                </div>
+                <div id="live-conversion" style="font-size: 12px; color: #ff3131; margin-bottom: 15px; font-family: monospace;">0 AET = ₱ 0.00</div>
+                <button class="login-btn" onclick="finalizeWithdrawal()">CONFIRM WITHDRAWAL</button>
+            </div>
+
+            <div id="receipt-box" class="hidden" style="margin-bottom: 20px; text-align: left;">
+                <div class="receipt-line"><span class="receipt-lbl">Account:</span><span id="rec-name" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Withdrawal:</span><span id="rec-amount" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Remaining:</span><span id="rec-rem" class="receipt-val" style="color:#00ff88;"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Terminal:</span><span id="rec-atm" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Date/Time:</span><span id="rec-time" class="receipt-val"></span></div>
+            </div>
+
+            <div id="logout-confirmation" class="hidden">
+                <p style="color: #ccc; font-size: 12px; margin-bottom: 10px;">Are you sure you want to terminate your active secure banking session?</p>
+                <div class="modal-btn-group">
+                    <button class="login-btn" style="background: #ff3131; margin-bottom: 0;" onclick="executeSecureLogout()">YES, LOG OUT</button>
+                    <button class="login-btn" style="background: #222; color: #fff; margin-bottom: 0;" onclick="closeModals()">CANCEL</button>
+                </div>
+            </div>
+
+            <p id="notify-body" style="color: #ccc; font-size: 11px; line-height: 1.5;"></p>
+            <button onclick="closeModals()" id="notify-btn" class="login-btn" style="margin-top: 20px; font-size: 11px;">RETURN TO DASHBOARD</button>
+        </div>
+    </div>
+
+    <script>
+        const ATM_STATUS = { "Vaishya": "Inactive", "Kuros": "Inactive", "Conva": "Inactive" };
+        
+        const CITIZEN_ACCOUNTS = {
+            "RCSBK": { pin: "33914277", crn: "006", name: "CHRIS ANDREI SEVILLA", balanceAET: 0, status: "Active", expiry: "December 17, 2027" },
+            "JAKEY": { pin: "01234567", crn: "000", name: "JAKE NAQUILA", balanceAET: 5576760, status: "Active", expiry: "December 17, 2027" },
+            "RHGVC": { pin: "21814668", crn: "005", name: "HONEY GRACE COMAWAS", balanceAET: 0, status: "Active", expiry: "December 17, 2027" },
+            "JSRLN": { pin: "27714218", crn: "002", name: "JENINA ROSE LUNIZA", balanceAET: 0, status: "Active", expiry: "December 17, 2027" }
+        };
+
+        let currentUser = null;
+        let selectedAtmName = "";
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // High Fidelity Audio Engine 
+        function playAudioSignal(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const now = audioCtx.currentTime;
+
+            if (type === 'confirm') {
+                // High-pitched high-gain Bank Confirmation Sound ("Ting-Ning")
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(1800, now);
+                osc1.frequency.setValueAtTime(2400, now + 0.09); // Dynamic step up to 2400Hz
+
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(1800, now);
+                osc2.frequency.setValueAtTime(2400, now + 0.09);
+
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.4);
+                osc2.stop(now + 0.4);
+
+            } else if (type === 'error') {
+                // Aggressive Bank System Error Alert ("Erkkk")
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(18, now);
+                osc1.frequency.linearRampToValueAtTime(320, now + 0.25); // Harsh upward slide
+
+                osc2.type = 'sawtooth';
+                osc2.frequency.setValueAtTime(185, now); // Detune modification
+                osc2.frequency.linearRampToValueAtTime(325, now + 0.25);
+
+                gain.gain.setValueAtTime(0.45, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.26);
+                osc2.stop(now + 0.26);
+
+            } else if (type === 'click') {
+                // Elevated normal keypress interaction pitch to ensure prominent audibility
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(950, now); // Audibly clear high frequency baseline
+
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.06);
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-time').innerText = `CURRENT TIME: ${now.toLocaleTimeString().toUpperCase()}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function getDaysRemaining(expiryDateStr) {
+            const today = new Date();
+            const expiry = new Date(expiryDateStr);
+            return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+        }
+
+        function processAccess(mode) {
+            if (mode === 'login') {
+                const codal = document.getElementById('codal').value.toUpperCase();
+                const pin = document.getElementById('pin').value;
+                document.getElementById('login-ui').classList.add('hidden');
+                
+                document.getElementById('loading-msg').innerText = "AUTHENTICATING...";
+                document.getElementById('loading-ui').classList.remove('hidden');
+
+                setTimeout(() => {
+                    const user = CITIZEN_ACCOUNTS[codal];
+                    if (user && getDaysRemaining(user.expiry) <= 0) {
+                        delete CITIZEN_ACCOUNTS[codal]; 
+                        playAudioSignal('error');
+                        document.getElementById('loading-ui').classList.add('hidden');
+                        document.getElementById('login-ui').classList.remove('hidden');
+                        document.getElementById('error').innerText = "DATA PURGED: CARD EXPIRED";
+                        document.getElementById('error').style.display = 'block';
+                        return;
+                    }
+
+                    if (user && user.pin === pin) {
+                        playAudioSignal('confirm');
+                        currentUser = user;
+                        document.getElementById('loading-ui').classList.add('hidden');
+                        document.getElementById('dashboard').classList.remove('hidden');
+                        renderDashboard();
+                    } else {
+                        playAudioSignal('error');
+                        document.getElementById('loading-ui').classList.add('hidden');
+                        document.getElementById('login-ui').classList.remove('hidden');
+                        document.getElementById('error').style.display = 'block';
+                    }
+                }, 1200);
+            } 
+        }
+
+        function triggerLogoutPrompt() {
+            playAudioSignal('click');
+            resetModals();
+            document.getElementById('notify-title').innerText = "SECURE LOGOUT CONFIGURATION";
+            document.getElementById('logout-confirmation').classList.remove('hidden');
+            document.getElementById('notify-btn').classList.add('hidden'); // Remove dashboard return btn for layout
+            document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function executeSecureLogout() {
+            playAudioSignal('confirm');
+            closeModals();
+            
+            // Hide main dashboard visibility layer 
+            document.getElementById('dashboard').classList.add('hidden');
+            
+            // Re-render UI load sequence configured with custom banking terminate text
+            document.getElementById('loading-msg').innerText = "DE-AUTHENTICATING SESSION...";
+            document.getElementById('loading-ui').classList.remove('hidden');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+
+        function renderDashboard() {
+            document.getElementById('dash-name').innerText = currentUser.name;
+            document.getElementById('balance-aet').innerText = `${currentUser.balanceAET.toLocaleString()} AET`;
+            document.getElementById('balance-php').innerText = `₱ ${(currentUser.balanceAET * 0.25).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            
+            document.getElementById('card-id-display').innerText = `ID: 001 67113 ${currentUser.pin} ${currentUser.crn}`;
+            
+            const expDate = new Date(currentUser.expiry);
+            const options = { month: 'long', day: 'numeric', year: 'numeric' };
+            document.getElementById('expiry-display').innerText = expDate.toLocaleDateString('en-US', options);
+
+            const daysLeft = getDaysRemaining(currentUser.expiry);
+            const banner = document.getElementById('expiry-banner');
+            if (daysLeft <= 30 && daysLeft > 0) {
+                banner.classList.remove('hidden');
+                document.getElementById('days-left').innerText = daysLeft;
+            }
+
+            const sArea = document.getElementById('status-area');
+            let color = currentUser.status === "Locked" ? "#ff3131" : "#00ff88";
+            sArea.innerHTML = `<div class="status-badge" style="border: 1px solid ${color}; color: ${color}">STATUS: ${currentUser.status}</div>`;
+            
+            const board = document.getElementById('id-board');
+            board.className = 'id-board ' + (currentUser.balanceAET <= 50 ? 'glow-red' : currentUser.balanceAET <= 100 ? 'glow-blue' : currentUser.balanceAET <= 500 ? 'glow-green' : 'glow-gold');
+        }
+
+        function navWithLoading(targetId) {
+            document.querySelectorAll('.glass-box > div:not(.hidden):not(.live-clock)').forEach(el => el.classList.add('hidden'));
+            document.getElementById('loading-msg').innerText = "AUTHENTICATING...";
+            document.getElementById('loading-ui').classList.remove('hidden');
+            playAudioSignal('click');
+            setTimeout(() => {
+                document.getElementById('loading-ui').classList.add('hidden');
+                document.getElementById(targetId).classList.remove('hidden');
+            }, 800);
+        }
+
+        function showAtmSelection() {
+            if (currentUser.status === "Locked") {
+                playAudioSignal('error');
+                showBasicModal("ACCESS DENIED", "Account is currently LOCKED. Please comply to specific addresses that made your card locked. Thank you!");
+                return;
+            }
+            playAudioSignal('click');
+            resetModals();
+            document.getElementById('notify-title').innerText = "SELECT ATM TERMINAL";
+            document.getElementById('atm-selection').classList.remove('hidden');
+            document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function selectAtm(name) {
+            if (ATM_STATUS[name] === "Inactive") {
+                playAudioSignal('error');
+                showBasicModal("ATM OFFLINE", `${name} ATM is currently inactive. It is under maintenance or has system bug. Please wait as the developers are trying to fix this issue. Thank you!`);
+            } else {
+                playAudioSignal('click');
+                selectedAtmName = name;
+                resetModals();
+                document.getElementById('notify-title').innerText = `CURRENT ATM USED : ${name.toUpperCase()}`;
+                document.getElementById('withdraw-input-ui').classList.remove('hidden');
+                document.getElementById('notify-overlay').style.display = 'flex';
+            }
+        }
+
+        function updateLiveConversion() {
+            const val = document.getElementById('withdraw-amount').value || 0;
+            document.getElementById('live-conversion').innerText = `${val} AET = ₱ ${(val * 0.25).toFixed(2)}`;
+        }
+
+        function finalizeWithdrawal() {
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            if (isNaN(amount) || amount < 100 || amount > 1000) {
+                playAudioSignal('error');
+                alert("LIMIT: 100 - 1000 AET.");
+                return;
+            }
+            if (currentUser.balanceAET < amount) {
+                playAudioSignal('error');
+                showBasicModal("INSUFFICIENT BALANCE", "Available funds is lower than requested.");
+                return;
+            }
+            
+            playAudioSignal('confirm');
+            currentUser.balanceAET -= amount;
+            renderDashboard();
+            resetModals();
+
+            const now = new Date();
+            document.getElementById('notify-title').innerText = "TRANSACTION SUCCESS";
+            document.getElementById('rec-name').innerText = currentUser.name;
+            document.getElementById('rec-amount').innerText = `${amount} AET`;
+            document.getElementById('rec-rem').innerText = `${currentUser.balanceAET} AET`;
+            document.getElementById('rec-atm').innerText = `${selectedAtmName} ATM`;
+            document.getElementById('rec-time').innerText = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
+            document.getElementById('receipt-box').classList.remove('hidden');
+            document.getElementById('notify-body').innerHTML = "<strong style='color:#ff3131'>IMPORTANT:</strong> Send screenshot to the Head of Kundenkarte.";
+            document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function showBasicModal(title, body) {
+            resetModals();
+            document.getElementById('notify-title').innerText = title;
+            document.getElementById('notify-body').innerText = body;
+            document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function resetModals() {
+            document.getElementById('atm-selection').classList.add('hidden');
+            document.getElementById('withdraw-input-ui').classList.add('hidden');
+            document.getElementById('receipt-box').classList.add('hidden');
+            document.getElementById('logout-confirmation').classList.add('hidden');
+            document.getElementById('notify-btn').classList.remove('hidden');
+            document.getElementById('notify-body').innerText = "";
+            document.getElementById('withdraw-amount').value = "";
+            document.getElementById('live-conversion').innerText = "0 AET = ₱ 0.00";
+        }
+
+        function closeModals() { 
+            playAudioSignal('click');
+            document.getElementById('notify-overlay').style.display = 'none'; 
+        }
+    </script>
+</body>
+</html>
