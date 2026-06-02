@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MY KUNDENKARTE</title>
+    <!-- Include html2canvas for HD PNG rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'SF Pro Display', -apple-system, sans-serif; }
 
@@ -31,12 +33,23 @@
         .fade-in { animation: fadeIn 0.8s forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+
         .id-board {
             width: 100%; padding: 15px; margin-bottom: 20px;
             background: rgba(0, 0, 0, 0.6); border-radius: 12px;
             border: 2px solid #333; transition: 0.5s;
             text-transform: uppercase; letter-spacing: 2px;
         }
+        .clickable-board { cursor: pointer; transition: transform 0.2s, box-shadow 0.5s, border-color 0.5s; }
+        .clickable-board:hover { transform: scale(1.02); }
+
         .glow-red { border-color: #ff3131; box-shadow: 0 0 15px #ff3131; }
         .glow-blue { border-color: #3186ff; box-shadow: 0 0 15px #3186ff; }
         .glow-green { border-color: #00ff88; box-shadow: 0 0 15px #00ff88; }
@@ -54,6 +67,7 @@
             border: 1px solid rgba(255, 49, 49, 0.2); border-radius: 12px;
             color: #ff3131; font-size: 15px; outline: none; transition: 0.3s;
         }
+        input:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .login-btn {
             width: 100%; padding: 16px; border: none; border-radius: 12px;
@@ -61,6 +75,7 @@
             cursor: pointer; text-transform: uppercase; transition: 0.3s;
             margin-bottom: 10px;
         }
+        .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .data-card {
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1);
@@ -109,7 +124,7 @@
 </head>
 <body>
 
-    <div class="glass-box fade-in">
+    <div class="glass-box fade-in" id="main-glass-box">
         <div id="live-time" class="live-clock">SYSTEM TIME: --:--:-- --</div>
 
         <div id="loading-ui" class="hidden">
@@ -123,6 +138,8 @@
             <div style="margin-top: 40px;">
                 <button class="login-btn" onclick="navWithLoading('login-ui')">PROCEED TO LOGIN</button>
                 <button class="login-btn" style="background: transparent; border: 1px solid rgba(255,255,255,0.3);" onclick="navWithLoading('rules-ui')">DEVELOPER NOTES</button>
+                <button class="login-btn" style="background: transparent; border: 1px solid #00ff88; color: #00ff88;" onclick="openNewsUI()">NEWS & ANNOUNCEMENTS</button>
+                <button class="login-btn" style="background: transparent; border: 1px solid #3186ff; color: #3186ff; font-size: 11px; margin-top: 10px;" onclick="triggerMailPrompt()">QUESTIONS? CLICK HERE!</button>
             </div>
         </div>
 
@@ -146,6 +163,19 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             <button class="login-btn" onclick="navWithLoading('intro-ui')">BACK</button>
         </div>
 
+        <div id="news-ui" class="hidden">
+            <h2 style="font-size: 22px;">ANNOUNCEMENTS</h2>
+            <div id="news-container" style="text-align: left; color: #ccc; font-size: 11px; line-height: 1.8; margin: 20px 0; min-height: 130px;">
+                <!-- Populated dynamically via JS -->
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <button class="login-btn" style="width: 45%; margin: 0; font-size: 10px;" onclick="prevNews()">PREV</button>
+                <span id="news-page-indicator" style="color: #fff; font-size: 12px; align-self: center;">1/1</span>
+                <button class="login-btn" style="width: 45%; margin: 0; font-size: 10px;" onclick="nextNews()">NEXT</button>
+            </div>
+            <button class="login-btn" onclick="navWithLoading('intro-ui')">BACK</button>
+        </div>
+
         <div id="login-ui" class="hidden">
             <h2>LOGIN PORTAL</h2>
             <p class="mit-subtitle">Please Log In to Continue</p>
@@ -157,9 +187,9 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
                 <label>8-Digit PIN</label>
                 <input type="password" id="pin" maxlength="8" placeholder="********">
             </div>
-            <button class="login-btn" onclick="processAccess('login')">LOG IN</button>
+            <button class="login-btn" id="login-submit-btn" onclick="processAccess('login')">LOG IN</button>
             <button class="login-btn" style="background: transparent; border: none; font-size: 10px; color: rgba(255,255,255,0.4);" onclick="navWithLoading('intro-ui')">RETURN TO MAIN</button>
-            <p id="error" style="color: #ff3131; font-size: 10px; margin-top: 15px; display: none;">ACCESS DENIED</p>
+            <p id="error" style="color: #ff3131; font-size: 10px; margin-top: 15px; display: none;">ACCESS DENIED, PLEASE TRY AGAIN.</p>
         </div>
 
         <div id="dashboard" class="hidden">
@@ -169,7 +199,7 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
 
             <div id="status-area"></div>
             
-            <div id="id-board" class="id-board">
+            <div id="id-board" class="id-board clickable-board" onclick="showProfileInfo()">
                 <div id="card-id-display" style="font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; margin-bottom: 5px;">ID: ---</div>
                 <div id="dash-name" style="color: #fff; font-weight: bold; font-size: 18px;">---</div>
             </div>
@@ -186,13 +216,14 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             </div>
             
             <button class="login-btn" style="background: #fff; color: #000; margin-bottom: 10px;" onclick="showAtmSelection()">WITHDRAW</button>
-            <button class="login-btn" style="background: transparent; border: 1px solid #ff3131; font-size: 11px;" onclick="triggerLogoutPrompt()">LOG OUT</button>
+            <button class="login-btn" style="background: transparent; border: 1px solid #ff3131; font-size: 11px; margin-bottom: 10px;" onclick="triggerLogoutPrompt()">LOG OUT</button>
+            <button class="login-btn" style="background: transparent; border: none; color: #3186ff; font-size: 11px;" onclick="triggerMailPrompt()">QUESTIONS? CLICK HERE!</button>
         </div>
     </div>
 
     <div class="overlay" id="notify-overlay">
-        <div class="popup">
-            <h4 id="notify-title" style="color: #fff; margin-bottom: 15px; font-size: 14px;">NOTIFICATION</h4>
+        <div class="popup" id="main-popup">
+            <h4 id="notify-title" style="color: #fff; margin-bottom: 15px; font-size: 14px;">OFFICIAL ATM PARTNERS</h4>
             
             <div id="atm-selection" class="hidden">
                 <button class="atm-btn" onclick="selectAtm('Vaishya')"><span>VAISHYA ATM</span> <span style="font-size:8px; color:#ff3131;">INACTIVE</span></button>
@@ -210,17 +241,39 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             </div>
 
             <div id="receipt-box" class="hidden" style="margin-bottom: 20px; text-align: left;">
-                <div class="receipt-line"><span class="receipt-lbl">Account:</span><span id="rec-name" class="receipt-val"></span></div>
-                <div class="receipt-line"><span class="receipt-lbl">Withdrawal:</span><span id="rec-amount" class="receipt-val"></span></div>
-                <div class="receipt-line"><span class="receipt-lbl">Remaining:</span><span id="rec-rem" class="receipt-val" style="color:#00ff88;"></span></div>
-                <div class="receipt-line"><span class="receipt-lbl">Terminal:</span><span id="rec-atm" class="receipt-val"></span></div>
-                <div class="receipt-line"><span class="receipt-lbl">Date/Time:</span><span id="rec-time" class="receipt-val"></span></div>
+                <div id="receipt-content-area" style="padding: 10px 0;">
+                    <div style="text-align: center; margin-bottom: 15px; color: #fff; font-weight: bold; font-size: 13px; letter-spacing: 2px;">KUNDENKARTE RECEIPT</div>
+                    <div class="receipt-line"><span class="receipt-lbl">Account:</span><span id="rec-name" class="receipt-val"></span></div>
+                    <div class="receipt-line"><span class="receipt-lbl">Withdrawal:</span><span id="rec-amount" class="receipt-val"></span></div>
+                    <div class="receipt-line"><span class="receipt-lbl">Remaining:</span><span id="rec-rem" class="receipt-val" style="color:#00ff88;"></span></div>
+                    <div class="receipt-line"><span class="receipt-lbl">Terminal:</span><span id="rec-atm" class="receipt-val"></span></div>
+                    <div class="receipt-line"><span class="receipt-lbl">Date/Time:</span><span id="rec-time" class="receipt-val"></span></div>
+                </div>
+                <button class="login-btn" style="background: #00ff88; color: #000; margin-top: 10px; width: 100%; margin-bottom: 0;" onclick="saveReceiptPNG()">SAVE RECEIPT (HD PNG)</button>
+            </div>
+
+            <div id="profile-info" class="hidden" style="text-align: left; font-size: 11px; line-height: 1.8;">
+                <div class="receipt-line"><span class="receipt-lbl">Name:</span><span id="prof-name" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">ID:</span><span id="prof-id" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">CRN:</span><span id="prof-crn" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">PIN:</span><span id="prof-pin" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Codal Pass:</span><span id="prof-codal" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Color Status:</span><span id="prof-color" class="receipt-val"></span></div>
+                <div class="receipt-line"><span class="receipt-lbl">Expiry:</span><span id="prof-expiry" class="receipt-val"></span></div>
             </div>
 
             <div id="logout-confirmation" class="hidden">
-                <p style="color: #ccc; font-size: 12px; margin-bottom: 10px;">Are you sure you want to terminate your active secure banking session?</p>
+                <p style="color: #ccc; font-size: 12px; margin-bottom: 10px;">Are you sure you want to log out your account?</p>
                 <div class="modal-btn-group">
                     <button class="login-btn" style="background: #ff3131; margin-bottom: 0;" onclick="executeSecureLogout()">YES, LOG OUT</button>
+                    <button class="login-btn" style="background: #222; color: #fff; margin-bottom: 0;" onclick="closeModals()">CANCEL</button>
+                </div>
+            </div>
+
+            <div id="email-confirmation" class="hidden">
+                <p style="color: #ccc; font-size: 12px; margin-bottom: 10px;">You are about to be redirected to your email client with a pre-filled support message. Are you sure you want to proceed?</p>
+                <div class="modal-btn-group">
+                    <button class="login-btn" style="background: #3186ff; margin-bottom: 0;" onclick="sendSupportEmail()">YES, PROCEED</button>
                     <button class="login-btn" style="background: #222; color: #fff; margin-bottom: 0;" onclick="closeModals()">CANCEL</button>
                 </div>
             </div>
@@ -240,8 +293,19 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             "JSRLN": { pin: "27714218", crn: "002", name: "JENINA ROSE LUNIZA", balanceAET: 1035, status: "Active", expiry: "December 17, 2027" }
         };
 
+        const NEWS_DATA = [
+            { date: "June 2, 2026", title: "SYSTEM OPTIMIZATION", content: "Kundenkarte backend has been upgraded for faster AET transactions and enhanced secure handshake protocols applied to all registered users." },
+            { date: "May 25, 2026", title: "NEW TERMINALS DEPLOYMENT", content: "New ATM locations have been marked for deployment in the Aesthrella central district. Please wait for the official activation announcements via your Codal Pass." },
+            { date: "May 10, 2026", title: "SECURITY ADVISORY", content: "Never share your Codal Pass or PIN. Staff members will never ask for your 8-digit secure PIN under any circumstances." }
+        ];
+
         let currentUser = null;
+        let currentUserCodal = "";
         let selectedAtmName = "";
+        let loginAttempts = 0;
+        let loginLockedOut = false;
+        let currentNewsPage = 0;
+
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         // High Fidelity Audio Engine 
@@ -252,14 +316,13 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             const now = audioCtx.currentTime;
 
             if (type === 'confirm') {
-                // High-pitched high-gain Bank Confirmation Sound ("Ting-Ning")
                 const osc1 = audioCtx.createOscillator();
                 const osc2 = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
                 osc1.type = 'sine';
                 osc1.frequency.setValueAtTime(1800, now);
-                osc1.frequency.setValueAtTime(2400, now + 0.09); // Dynamic step up to 2400Hz
+                osc1.frequency.setValueAtTime(2400, now + 0.09); 
 
                 osc2.type = 'triangle';
                 osc2.frequency.setValueAtTime(1800, now);
@@ -278,17 +341,16 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
                 osc2.stop(now + 0.4);
 
             } else if (type === 'error') {
-                // Aggressive Bank System Error Alert ("Erkkk")
                 const osc1 = audioCtx.createOscillator();
                 const osc2 = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
                 osc1.type = 'sawtooth';
                 osc1.frequency.setValueAtTime(18, now);
-                osc1.frequency.linearRampToValueAtTime(320, now + 0.25); // Harsh upward slide
+                osc1.frequency.linearRampToValueAtTime(320, now + 0.25); 
 
                 osc2.type = 'sawtooth';
-                osc2.frequency.setValueAtTime(185, now); // Detune modification
+                osc2.frequency.setValueAtTime(185, now); 
                 osc2.frequency.linearRampToValueAtTime(325, now + 0.25);
 
                 gain.gain.setValueAtTime(0.45, now);
@@ -304,12 +366,11 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
                 osc2.stop(now + 0.26);
 
             } else if (type === 'click') {
-                // Elevated normal keypress interaction pitch to ensure prominent audibility
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(950, now); // Audibly clear high frequency baseline
+                osc.frequency.setValueAtTime(950, now); 
 
                 gain.gain.setValueAtTime(0.18, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
@@ -335,7 +396,21 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
         }
 
+        function triggerShakeAnimation(selector) {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.classList.remove('shake');
+                void el.offsetWidth; // trigger reflow
+                el.classList.add('shake');
+            }
+        }
+
         function processAccess(mode) {
+            if (loginLockedOut) {
+                playAudioSignal('error');
+                return;
+            }
+
             if (mode === 'login') {
                 const codal = document.getElementById('codal').value.toUpperCase();
                 const pin = document.getElementById('pin').value;
@@ -346,9 +421,11 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
 
                 setTimeout(() => {
                     const user = CITIZEN_ACCOUNTS[codal];
+                    
                     if (user && getDaysRemaining(user.expiry) <= 0) {
                         delete CITIZEN_ACCOUNTS[codal]; 
                         playAudioSignal('error');
+                        triggerShakeAnimation('#main-glass-box');
                         document.getElementById('loading-ui').classList.add('hidden');
                         document.getElementById('login-ui').classList.remove('hidden');
                         document.getElementById('error').innerText = "DATA PURGED: CARD EXPIRED";
@@ -357,16 +434,58 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
                     }
 
                     if (user && user.pin === pin) {
+                        loginAttempts = 0;
+                        currentUserCodal = codal;
                         playAudioSignal('confirm');
                         currentUser = user;
                         document.getElementById('loading-ui').classList.add('hidden');
                         document.getElementById('dashboard').classList.remove('hidden');
                         renderDashboard();
                     } else {
+                        loginAttempts++;
                         playAudioSignal('error');
                         document.getElementById('loading-ui').classList.add('hidden');
                         document.getElementById('login-ui').classList.remove('hidden');
-                        document.getElementById('error').style.display = 'block';
+                        
+                        if (loginAttempts >= 3) {
+                            loginLockedOut = true;
+                            let secondsLeft = 10;
+                            
+                            document.getElementById('codal').disabled = true;
+                            document.getElementById('pin').disabled = true;
+                            document.getElementById('login-submit-btn').disabled = true;
+                            
+                            document.getElementById('error').innerText = `SYSTEM LOCKED. RETRY IN ${secondsLeft}s`;
+                            document.getElementById('error').style.display = 'block';
+
+                            showBasicModal("SECURITY LOCKDOWN", `Maximum attempts reached. Login system blocked for ${secondsLeft} seconds.`);
+                            triggerShakeAnimation('#main-popup');
+
+                            const lockInterval = setInterval(() => {
+                                secondsLeft--;
+                                if (secondsLeft > 0) {
+                                    document.getElementById('error').innerText = `SYSTEM LOCKED. RETRY IN ${secondsLeft}s`;
+                                    if(document.getElementById('notify-title').innerText === "SECURITY LOCKDOWN") {
+                                        document.getElementById('notify-body').innerText = `Maximum attempts reached. Login system blocked for ${secondsLeft} seconds.`;
+                                    }
+                                } else {
+                                    clearInterval(lockInterval);
+                                    loginLockedOut = false;
+                                    loginAttempts = 0;
+                                    document.getElementById('codal').disabled = false;
+                                    document.getElementById('pin').disabled = false;
+                                    document.getElementById('login-submit-btn').disabled = false;
+                                    document.getElementById('error').style.display = 'none';
+                                    if(document.getElementById('notify-title').innerText === "SECURITY LOCKDOWN") {
+                                        closeModals();
+                                    }
+                                }
+                            }, 1000);
+                        } else {
+                            triggerShakeAnimation('#main-glass-box');
+                            document.getElementById('error').innerText = `ACCESS DENIED. ATTEMPT ${loginAttempts}/3`;
+                            document.getElementById('error').style.display = 'block';
+                        }
                     }
                 }, 1200);
             } 
@@ -375,9 +494,9 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
         function triggerLogoutPrompt() {
             playAudioSignal('click');
             resetModals();
-            document.getElementById('notify-title').innerText = "SECURE LOGOUT CONFIGURATION";
+            document.getElementById('notify-title').innerText = "LOG OUT CONFIRMATION";
             document.getElementById('logout-confirmation').classList.remove('hidden');
-            document.getElementById('notify-btn').classList.add('hidden'); // Remove dashboard return btn for layout
+            document.getElementById('notify-btn').classList.add('hidden'); 
             document.getElementById('notify-overlay').style.display = 'flex';
         }
 
@@ -385,16 +504,101 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             playAudioSignal('confirm');
             closeModals();
             
-            // Hide main dashboard visibility layer 
             document.getElementById('dashboard').classList.add('hidden');
-            
-            // Re-render UI load sequence configured with custom banking terminate text
-            document.getElementById('loading-msg').innerText = "DE-AUTHENTICATING SESSION...";
+            document.getElementById('loading-msg').innerText = "LOGGING OUT...";
             document.getElementById('loading-ui').classList.remove('hidden');
             
             setTimeout(() => {
                 location.reload();
             }, 1500);
+        }
+
+        function triggerMailPrompt() {
+            playAudioSignal('click');
+            resetModals();
+            document.getElementById('notify-title').innerText = "CONFIRMATION";
+            document.getElementById('email-confirmation').classList.remove('hidden');
+            document.getElementById('notify-btn').classList.add('hidden');
+            document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function sendSupportEmail() {
+            playAudioSignal('confirm');
+            const email = "mit.aesthrella@gmail.com";
+            const subject = "Inquiry Regarding Kundenkarte Loyalty Black Card – [Your Full Name]";
+            const body = "Dear Support Team,\n\nBest regards,\n[Your Name]";
+            
+            window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            closeModals();
+        }
+
+        function openNewsUI() {
+            currentNewsPage = 0;
+            updateNewsRender();
+            navWithLoading('news-ui');
+        }
+
+        function updateNewsRender() {
+            const container = document.getElementById('news-container');
+            const news = NEWS_DATA[currentNewsPage];
+            container.innerHTML = `
+                <div style="color: #00ff88; font-weight: bold; font-size: 10px; margin-bottom: 5px;">${news.date}</div>
+                <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 8px;">${news.title}</div>
+                <div style="color: #ccc;">${news.content}</div>
+            `;
+            document.getElementById('news-page-indicator').innerText = `${currentNewsPage + 1}/${NEWS_DATA.length}`;
+        }
+
+        function prevNews() {
+            if (currentNewsPage > 0) {
+                playAudioSignal('click');
+                currentNewsPage--;
+                updateNewsRender();
+            } else {
+                playAudioSignal('error');
+            }
+        }
+
+        function nextNews() {
+            if (currentNewsPage < NEWS_DATA.length - 1) {
+                playAudioSignal('click');
+                currentNewsPage++;
+                updateNewsRender();
+            } else {
+                playAudioSignal('error');
+            }
+        }
+
+        function showProfileInfo() {
+            if (!currentUser) return;
+            playAudioSignal('click');
+            resetModals();
+            
+            document.getElementById('notify-title').innerText = "PROFILE INFORMATION";
+            
+            document.getElementById('prof-name').innerText = currentUser.name;
+            document.getElementById('prof-id').innerText = `001 67113 ${currentUser.pin} ${currentUser.crn}`;
+            document.getElementById('prof-crn').innerText = currentUser.crn;
+            document.getElementById('prof-pin').innerText = currentUser.pin;
+            document.getElementById('prof-codal').innerText = currentUserCodal;
+
+            let cMeaning = "";
+            let cHex = "";
+            if (currentUser.balanceAET <= 50) { cMeaning = "CRITICAL (RED)"; cHex = "#ff3131"; }
+            else if (currentUser.balanceAET <= 100) { cMeaning = "LOW (BLUE)"; cHex = "#3186ff"; }
+            else if (currentUser.balanceAET <= 500) { cMeaning = "STABLE (GREEN)"; cHex = "#00ff88"; }
+            else { cMeaning = "PREMIUM (GOLD)"; cHex = "#ffcc00"; }
+            
+            const colorEl = document.getElementById('prof-color');
+            colorEl.innerText = cMeaning;
+            colorEl.style.color = cHex;
+
+            const expDate = new Date(currentUser.expiry);
+            const options = { month: 'long', day: 'numeric', year: 'numeric' };
+            document.getElementById('prof-expiry').innerText = expDate.toLocaleDateString('en-US', options);
+
+            document.getElementById('profile-info').classList.remove('hidden');
+            document.getElementById('notify-overlay').style.display = 'flex';
         }
 
         function renderDashboard() {
@@ -420,7 +624,7 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             sArea.innerHTML = `<div class="status-badge" style="border: 1px solid ${color}; color: ${color}">STATUS: ${currentUser.status}</div>`;
             
             const board = document.getElementById('id-board');
-            board.className = 'id-board ' + (currentUser.balanceAET <= 50 ? 'glow-red' : currentUser.balanceAET <= 100 ? 'glow-blue' : currentUser.balanceAET <= 500 ? 'glow-green' : 'glow-gold');
+            board.className = 'id-board clickable-board ' + (currentUser.balanceAET <= 50 ? 'glow-red' : currentUser.balanceAET <= 100 ? 'glow-blue' : currentUser.balanceAET <= 500 ? 'glow-green' : 'glow-gold');
         }
 
         function navWithLoading(targetId) {
@@ -493,8 +697,32 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             document.getElementById('rec-time').innerText = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
 
             document.getElementById('receipt-box').classList.remove('hidden');
-            document.getElementById('notify-body').innerHTML = "<strong style='color:#ff3131'>IMPORTANT:</strong> Send screenshot to the Head of Kundenkarte.";
+            document.getElementById('notify-body').innerHTML = "<strong style='color:#ff3131'>IMPORTANT:</strong> Ensure to secure a copy of this receipt for verification.";
             document.getElementById('notify-overlay').style.display = 'flex';
+        }
+
+        function saveReceiptPNG() {
+            playAudioSignal('click');
+            const receiptEl = document.getElementById('receipt-content-area');
+            
+            // Temporary styling for solid background capture
+            receiptEl.style.padding = "25px";
+            receiptEl.style.background = "#080808"; 
+            receiptEl.style.border = "1px solid #ff3131";
+            receiptEl.style.borderRadius = "15px";
+
+            html2canvas(receiptEl, { scale: 3, backgroundColor: "#080808" }).then(canvas => {
+                // Revert styling
+                receiptEl.style.padding = "10px 0";
+                receiptEl.style.background = "transparent";
+                receiptEl.style.border = "none";
+                receiptEl.style.borderRadius = "0";
+
+                const link = document.createElement('a');
+                link.download = `KUNDENKARTE_RECEIPT_${Date.now()}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            });
         }
 
         function showBasicModal(title, body) {
@@ -509,6 +737,8 @@ Cardholders are strictly prohibited from utilizing the Kundenkarte Loyalty Black
             document.getElementById('withdraw-input-ui').classList.add('hidden');
             document.getElementById('receipt-box').classList.add('hidden');
             document.getElementById('logout-confirmation').classList.add('hidden');
+            document.getElementById('email-confirmation').classList.add('hidden');
+            document.getElementById('profile-info').classList.add('hidden');
             document.getElementById('notify-btn').classList.remove('hidden');
             document.getElementById('notify-body').innerText = "";
             document.getElementById('withdraw-amount').value = "";
